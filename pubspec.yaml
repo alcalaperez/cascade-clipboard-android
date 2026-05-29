@@ -1,0 +1,32 @@
+name: clipcascade_client
+description: "ClipCascade clipboard sync client"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  dio: ^5.4.0
+  dio_cookie_manager: ^3.1.1
+  cookie_jar: ^4.0.8
+  web_socket_channel: ^2.4.0
+  stomp_dart_client: ^2.0.0
+  flutter_background_service: ^5.0.5
+  flutter_secure_storage: ^9.0.0
+  crypto: ^3.0.3
+  pointycastle: ^3.7.4
+  permission_handler: ^11.0.0
+  html: ^0.15.4
+  provider: ^6.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

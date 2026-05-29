@@ -1,0 +1,31 @@
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+.packages
+
+# Android
+android/.gradle/
+android/.kotlin/
+android/app/build/
+android/local.properties
+*.jks
+*.keystore
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+*.Zone.Identifier
+Thumbs.db
+
+# Misc
+.metadata
+pubspec.lock
+ClipCascade-main/
+plan.md
+.commandcode/
