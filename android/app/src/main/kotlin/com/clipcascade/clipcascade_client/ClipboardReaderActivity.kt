@@ -4,19 +4,28 @@ import android.app.Activity
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 
 /**
- * Transparent activity that briefly gains focus to read the clipboard
- * on Android 10+, then finishes immediately.
- * The activity itself gaining focus is enough to read clipboard.
+ * Invisible activity that gains focus to read clipboard on Android 10+.
+ * Waits for window focus before reading, then finishes immediately.
  */
 class ClipboardReaderActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        readClipboard()
-        finish()
-        overridePendingTransition(0, 0)
+        Log.d("ClipCascade", "ReaderActivity created")
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            Log.d("ClipCascade", "ReaderActivity got focus")
+            readClipboard()
+            finish()
+            overridePendingTransition(0, 0)
+        }
     }
 
     private fun readClipboard() {
@@ -32,10 +41,14 @@ class ClipboardReaderActivity : Activity() {
                         .putLong("flutter.clip_ts", System.currentTimeMillis())
                         .apply()
                     Log.d("ClipCascade", "Overlay captured: ${text.length} chars")
+                } else {
+                    Log.d("ClipCascade", "Overlay: empty text")
                 }
+            } else {
+                Log.d("ClipCascade", "Overlay: no clip data")
             }
         } catch (e: Exception) {
-            Log.e("ClipCascade", "Overlay read failed: ${e.message}")
+            Log.e("ClipCascade", "Overlay failed: ${e.message}")
         }
     }
 }
