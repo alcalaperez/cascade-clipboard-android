@@ -6,10 +6,16 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
+import android.view.View
+import android.view.ViewTreeObserver
+import android.view.WindowManager
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -22,9 +28,9 @@ import java.util.Locale
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.clipcascade/clipboard"
+    private val handler = Handler(Looper.getMainLooper())
 
     companion object {
-        // Static so it survives activity recreation and runs in the app process
         private var logcatThread: Thread? = null
         private var logcatProcess: Process? = null
         private var stopLogcat = false
@@ -46,27 +52,9 @@ class MainActivity : FlutterActivity() {
                     startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
                     result.success(null)
                 }
-                "openBatterySettings" -> {
-                    // Try Honor/Huawei specific settings first
-                    val intents = listOf(
-                        Intent().setClassName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"),
-                        Intent().setClassName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity"),
-                        Intent().setClassName("com.hihonor.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"),
-                        Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                    )
-                    for (intent in intents) {
-                        try {
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            startActivity(intent)
-                            result.success(true)
-                            return@setMethodCallHandler
-                        } catch (_: Exception) {}
-                    }
-                    result.success(false)
-                }
                 "requestBatteryExemption" -> {
                     try {
-                        val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
                         intent.data = android.net.Uri.parse("package:$packageName")
                         startActivity(intent)
                         result.success(true)
@@ -96,7 +84,7 @@ class MainActivity : FlutterActivity() {
     private fun startClipboardMonitoring() {
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
-        // 1) Standard clipboard listener
+        // 1) Standard clipboard listener (works in foreground)
         if (clipListener == null) {
             clipListener = ClipboardManager.OnPrimaryClipChangedListener {
                 readAndStore(cm)
@@ -128,14 +116,8 @@ class MainActivity : FlutterActivity() {
                                 val now = System.currentTimeMillis()
                                 if (now - lastTime > 1000) {
                                     lastTime = now
-                                    Log.d("ClipCascade", "Logcat detected clipboard change, launching reader")
-                                    val intent = Intent(applicationContext, ClipboardReaderActivity::class.java)
-                                    intent.addFlags(
-                                        Intent.FLAG_ACTIVITY_NEW_TASK or
-                                        Intent.FLAG_ACTIVITY_CLEAR_TASK or
-                                        Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-                                    )
-                                    startActivity(intent)
+                                    Log.d("ClipCascade", "Logcat detected clipboard change")
+                                    handler.post { readClipboardViaOverlay() }
                                 }
                             }
                         }
@@ -152,6 +134,61 @@ class MainActivity : FlutterActivity() {
             }
         } else {
             Log.d("ClipCascade", "READ_LOGS not granted or Android <= 9")
+        }
+    }
+
+    private fun readClipboardViaOverlay() {
+        if (!Settings.canDrawOverlays(this)) {
+            Log.d("ClipCascade", "No overlay permission, cannot read clipboard in background")
+            return
+        }
+
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val overlayView = View(this)
+
+        val params = WindowManager.LayoutParams(
+            1, 1,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply { x = 0; y = 0 }
+
+        try {
+            wm.addView(overlayView, params)
+
+            // Make focusable to gain clipboard access
+            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+            wm.updateViewLayout(overlayView, params)
+
+            // Read clipboard once layout is done
+            overlayView.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+                override fun onGlobalLayout() {
+                    overlayView.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                    try {
+                        val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip = cm.primaryClip
+                        if (clip != null && clip.itemCount > 0) {
+                            val text = clip.getItemAt(0).coerceToText(applicationContext)?.toString()
+                            if (!text.isNullOrEmpty()) {
+                                val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                                prefs.edit()
+                                    .putString("flutter.clip_content", text)
+                                    .putLong("flutter.clip_ts", System.currentTimeMillis())
+                                    .apply()
+                                Log.d("ClipCascade", "Overlay captured: ${text.length} chars")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("ClipCascade", "Overlay read failed: ${e.message}")
+                    } finally {
+                        // Remove overlay and make non-focusable again
+                        try { wm.removeViewImmediate(overlayView) } catch (_: Exception) {}
+                    }
+                }
+            })
+        } catch (e: Exception) {
+            Log.e("ClipCascade", "Overlay creation failed: ${e.message}")
+            try { wm.removeViewImmediate(overlayView) } catch (_: Exception) {}
         }
     }
 

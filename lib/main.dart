@@ -75,14 +75,18 @@ class _SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.content_paste_rounded, size: 64),
-            SizedBox(height: 16),
-            CircularProgressIndicator(),
+            Icon(Icons.content_paste_rounded, size: 64,
+                color: Theme.of(context).colorScheme.primary),
+            const SizedBox(height: 16),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('Deriving encryption key...',
+                style: Theme.of(context).textTheme.bodySmall),
           ],
         ),
       ),

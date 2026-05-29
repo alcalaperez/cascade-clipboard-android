@@ -52,17 +52,6 @@
             tools:replace="android:foregroundServiceType"
             android:foregroundServiceType="dataSync" />
 
-        <!-- Transparent clipboard reader activity -->
-        <activity
-            android:name=".ClipboardReaderActivity"
-            android:exported="false"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
-            android:taskAffinity=""
-            android:excludeFromRecents="true"
-            android:noHistory="true"
-            android:configChanges="orientation|screenSize"
-            android:stateNotNeeded="true" />
-
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

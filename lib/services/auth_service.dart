@@ -134,7 +134,10 @@ class AuthService extends ChangeNotifier {
       // Derive encryption key if enabled
       if (_encryptionEnabled) {
         final keySalt = '$username$password$_encryptionSalt';
-        _encryptionKey = deriveKey(password, keySalt);
+        _encryptionKey = await compute(
+          _deriveKeyIsolate,
+          [password, keySalt],
+        );
       } else {
         _encryptionKey = null;
       }
@@ -241,4 +244,8 @@ class AuthService extends ChangeNotifier {
         return e.message ?? 'Network error';
     }
   }
+}
+
+Uint8List _deriveKeyIsolate(List<String> args) {
+  return deriveKey(args[0], args[1]);
 }
