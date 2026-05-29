@@ -26,6 +26,7 @@ class _StatusScreenState extends State<StatusScreen> with WidgetsBindingObserver
   String? _lastLocalClip;
   String _status = 'disconnected';
   String _lastRemoteClip = '';
+  bool _hasReadLogs = true;
 
   @override
   void initState() {
@@ -46,6 +47,7 @@ class _StatusScreenState extends State<StatusScreen> with WidgetsBindingObserver
     };
 
     _checkExistingService();
+    _checkPermissions();
   }
 
   @override
@@ -67,14 +69,25 @@ class _StatusScreenState extends State<StatusScreen> with WidgetsBindingObserver
   Future<void> _checkExistingService() async {
     final running = await _sync.isRunning();
     if (running) {
-      // Re-register event listeners for the already-running service
       _sync.registerListeners();
-      setState(() => _isSyncing = true);
+      setState(() {
+        _isSyncing = true;
+        _status = 'connected';
+      });
       _startClipboardPolling();
     }
   }
 
+  Future<void> _checkPermissions() async {
+    try {
+      final hasLogs = await _nativeChannel.invokeMethod('hasReadLogsPermission') as bool;
+      if (mounted) setState(() => _hasReadLogs = hasLogs);
+    } catch (_) {}
+  }
+
   Future<void> _startSync() async {
+    if (_isSyncing) return;
+
     if (!await _requestPermissions()) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -271,6 +284,27 @@ class _StatusScreenState extends State<StatusScreen> with WidgetsBindingObserver
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (!_hasReadLogs) ...[
+              Card(
+                color: Colors.orange.shade100,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_rounded, color: Colors.orange.shade800),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Background sync requires READ_LOGS permission.\nGrant via ADB: adb shell pm grant com.clipcascade.clipcascade_client android.permission.READ_LOGS',
+                          style: TextStyle(fontSize: 12, color: Colors.orange.shade900),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             // User info
             Card(
               child: Padding(

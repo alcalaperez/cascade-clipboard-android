@@ -102,6 +102,7 @@ class BackgroundSyncService {
     _clipboardSub?.cancel();
     _status = 'disconnected';
     onStatusChanged?.call(_status);
+    _service.invoke('stopSelf');
   }
 
   /// Send local clipboard content to the server.
@@ -260,6 +261,10 @@ void _onStart(ServiceInstance service) async {
     reconnectTimer?.cancel();
     lastSentContent = null;
     service.invoke('statusUpdate', {'status': 'stopped'});
+  });
+
+  service.on('stopSelf').listen((event) {
+    service.stopSelf();
   });
 
   service.on('sendClipboard').listen((event) {

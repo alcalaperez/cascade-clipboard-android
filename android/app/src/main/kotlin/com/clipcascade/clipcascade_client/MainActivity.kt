@@ -48,6 +48,9 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "hasOverlayPermission" -> result.success(Settings.canDrawOverlays(this))
+                "hasReadLogsPermission" -> {
+                    result.success(ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_LOGS) == PackageManager.PERMISSION_GRANTED)
+                }
                 "requestOverlayPermission" -> {
                     startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
                     result.success(null)
